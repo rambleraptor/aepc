@@ -141,6 +141,13 @@
         "published": {
           "type": "boolean"
         }
+      },
+      "x-aep-resource": {
+        "singular": "book",
+        "plural": "books",
+        "patterns": [
+          "/books/{book}"
+        ]
       }
     }
   }

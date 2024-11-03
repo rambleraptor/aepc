@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/aep-dev/aepc/constants"
 	"github.com/aep-dev/aepc/parser"
@@ -39,9 +40,9 @@ func convertToOpenAPI(service *parser.ParsedService) (*OpenAPI, error) {
 		if err != nil {
 			return nil, err
 		}
-		definitions[r.Kind] = d;
-		if(!r.IsResource) {
-			continue;
+		definitions[r.Kind] = d
+		if !r.IsResource {
+			continue
 		}
 		schemaRef := fmt.Sprintf("#/definitions/%v", r.Kind)
 		if r.Methods.List != nil {
@@ -186,19 +187,24 @@ func resourceToSchema(r *parser.ParsedResource) (Schema, error) {
 			required = append(required, f.Name)
 		}
 		switch f.GetTypes().(type) {
-			case *schema.Property_ArrayType:
-				s.Items = &Schema{
-					Type: t.array_type.openapi_type,
-					Format: t.array_type.openapi_format,
-				}
+		case *schema.Property_ArrayType:
+			s.Items = &Schema{
+				Type:   t.array_type.openapi_type,
+				Format: t.array_type.openapi_format,
+			}
 		}
 		properties[f.Name] = s
 	}
-	return Schema{
+	s := Schema{
 		Type:       "object",
 		Properties: &properties,
 		Required:   required,
-	}, nil
+	}
+
+	if r.IsResource {
+		s.XAepResource = &XAepResource{Singular: strings.ToLower(r.Kind), Plural: r.Plural, Patterns: []string{fmt.Sprintf("/%s/{%s}", r.Plural, strings.ToLower(r.Kind))}}
+	}
+	return s, nil
 }
 
 func addMethodToPath(paths Paths, path, method string, methodInfo MethodInfo) {
@@ -251,14 +257,21 @@ type ParameterInfo struct {
 }
 
 type Schema struct {
-	Ref          string      `json:"$ref,omitempty"`
-	Type         string      `json:"type,omitempty"`
-	Format       string      `json:"format,omitempty"`
-	Required     []string    `json:"required,omitempty"`
-	ReadOnly     bool        `json:"readOnly,omitempty"`
-	Items        *Schema     `json:"items,omitempty"`
-	Properties   *Properties `json:"properties,omitempty"`
-	XTerraformID bool        `json:"x-terraform-id,omitempty"`
+	Ref          string        `json:"$ref,omitempty"`
+	Type         string        `json:"type,omitempty"`
+	Format       string        `json:"format,omitempty"`
+	Required     []string      `json:"required,omitempty"`
+	ReadOnly     bool          `json:"readOnly,omitempty"`
+	Items        *Schema       `json:"items,omitempty"`
+	Properties   *Properties   `json:"properties,omitempty"`
+	XTerraformID bool          `json:"x-terraform-id,omitempty"`
+	XAepResource *XAepResource `json:"x-aep-resource,omitempty"`
+}
+
+type XAepResource struct {
+	Singular string   `json:"singular,omitempty"`
+	Plural   string   `json:"plural,omitempty"`
+	Patterns []string `json:"patterns,omitempty"`
 }
 
 type Properties map[string]Schema
